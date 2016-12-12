@@ -8,9 +8,9 @@ git checkout develop
 git checkout -b feat/featuren_nimi
 ```
 
-Kun valmista, mergaa mahdolliset developiin tehdyt muutokset
+Kun valmista, mergaa mahdolliset developiin tehdyt muutokset omaan branchiin
 ```
-git merge develop feat/featuren_nimi
+git merge feat/featuren_nimi develop
 ```
 Ratkaise merge conflictit ja mergaa takaisin developiin
 
