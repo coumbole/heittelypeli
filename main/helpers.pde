@@ -35,5 +35,5 @@ void drawRoiRect() {
 */
 void displayFps() {
   textSize(36);
-  text(frameRate, 10, 30);
+  text(frameRate, 10, height-50);
 }
