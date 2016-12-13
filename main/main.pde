@@ -196,14 +196,19 @@ int findHeaviestBlob() {
 void setRoiAroundBlob(int blobIndex) {
   // get the x coordinate and width of the blob
   int x = (int)bs.getCentroidX(blobIndex);
+  int y = (int)bs.getCentroidY(blobIndex);
   int w = bs.getBlobWidth(blobIndex);
+  int h = bs.getBlobHeight(blobIndex);
   
-  int roiX = (int)constrain((x - w/2) - w/2, 0, width-w);
-  int roiW = (int)constrain(w * 2, 0, width);
+  int roiX = (int)constrain((x - w/2) - w/4, 0, width-w);
+  int roiY = (int)constrain((y - h/2) - h/4, 0, height - h);
+  int roiW = (int)constrain(w * 1.5, 0, width);
+  int roiH = (int)constrain(h * 1.5, 0, height);
   
   bs.setRoi( roiX,
-             100,
+             roiY,
              roiW,
-             height-100);
-  println("roi set according to the heaviest blob");
+             roiH);
+  
+  println("ROI set according to the heaviest blob");
 }
