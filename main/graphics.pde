@@ -95,21 +95,32 @@ void drawTarget() {
     // Reduce the radius to draw the inner circles
     ellipse -= radius/5;
   }
+}
+
+
+void drawText() {
   
   fill(BLACK);
   t = interval - (int) millis() / 1000;
   if(t > -1){
     time = nf(t , 2);
   }
+  if (t == 0) {
+    gameOver = true;
+  }
   /* // Loop countDown
   if(t == 0){
       interval += 60;
   }
   */
+  textSize(36);
+  text(time, width/2, 40);
+  text("Score:  " + score, width - 500, 40);
 }
 
-
-void drawText() {
-  text(time, width/2, 25);
-  text("Score:  " + score, width - 100, 25);
+void drawGameover() {
+  background(100);
+  text("Game Over! Your score was " + score, width / 2, height / 2 - 50);
+  text("Press spacebar to play again", width / 2, height / 2 + 50);
+  
 }
