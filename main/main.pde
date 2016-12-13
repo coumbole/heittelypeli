@@ -24,7 +24,9 @@ boolean blobsFound = false;
 // This is set to true when ROI is set to something
 boolean isRoiSet = false;
 
+boolean scored = false;
 
+boolean gameOver = false;
 
 void setup() {
   size(1280, 720);
@@ -39,9 +41,10 @@ void setup() {
 
   /*
   initAudio();
-  initFonts();
   initTarget();
   */
+  
+  initFonts();
 
   // Uncomment to have the list of available cameras printed to the console
   //findCameras();
@@ -59,8 +62,16 @@ void setup() {
 
 void draw() {
   
+  if (gameOver) {
+    println("Game over");
+    cam.stop();
+    noLoop();
+    drawGameover();
+  }
+  
   // Only run the following code if a new cam frame is available
   if (cam.available()) {
+    
 
     // Reads the latest frame from camera
     cam.read();
@@ -75,19 +86,18 @@ void draw() {
     processFrameForScanning(cam);
 
     // Recalculate all blobs inside the ROI approx. once a second
-    if (frameCount % 30 == 0 || frameCount == 1) {
+    if (frameCount % 30 == 0) {
       reloadBlobs(cam);
-    }
-
-    // Every 3 seconds or so, reset roi according to the heaviest blob
-    if (frameCount % 90 == 0) {
       updateROI();
     }
-
     
+    // Every 3rd frame, check if there is another blob inside the target
+    if (frameCount % 5 == 0) {
+      checkCollision();
+    }
     
     // Draws bounding boxes of blobs
-    drawBlobs();
+    //drawBlobs();
     
     /*
     // Adjust the input volume according to cyrsor's Y-position
@@ -101,19 +111,64 @@ void draw() {
     
     // Render the target
     drawTarget();
+    */
     
     // Render time and score
     drawText();
     
-    */
-    
   } else {
-    println("Video was not available");
+    //println("Video was not available");
   }
 
   // Only for debugging purposes
-  displayFps();
-  drawRoiRect();
+  //displayFps();
+  //drawRoiRect();
+}
+
+/*
+    Checks if there is a blob inside ROI (which is set to be pretty much the target)
+    without inversing the image. Thus, this method will find a white blob inside the
+    target rectangle.
+*/
+void checkCollision() {
+
+  int[] roiParams = bs.getRoiParameters();
+  PImage copy = cam;
+  copy.filter(INVERT);
+  
+  // For debugging, uncomment following to visualize when collision check takes place
+  //image(copy, 0, 0);
+
+  // To find blobs inside the target, set the ROI smaller
+  bs.setRoi(roiParams[0]+50,   // target's X coordinate
+            roiParams[1]+50,   // target's Y coordinate
+            roiParams[2]-100,   // target's width
+            roiParams[3]-100);  // target's height
+  
+  // Draw the ROI rectangle to help visualize where it is
+  //drawRoiRect();
+  
+  // Find the blobs inside the target
+  bs.findBlobs(copy.pixels, copy.width, copy.height);
+  bs.loadBlobsFeatures();
+  bs.weightBlobs(true);
+  
+  // There's a white thing inside the target => SCORE!!
+  if (bs.getBlobsNumber() > 0) {
+    if (bs.getBlobWeight(findHeaviestBlob()) > 9000) {
+      scored = true;
+    }
+  }
+  
+  // Increment score
+  if (scored) score++;
+  scored = false;
+  
+  // Set the original ROI back
+  bs.setRoi(roiParams[0],
+            roiParams[1],
+            roiParams[2],
+            roiParams[3]);
 }
 
 
@@ -142,13 +197,13 @@ void drawBlobs() {
 void reloadBlobs(PImage frame) {
   //println("Reloading blobs");
   bs.findBlobs(frame.pixels, frame.width, frame.height);
-  bs.weightBlobs(true);
+  bs.weightBlobs(false);
   bs.loadBlobsFeatures();
   bs.findCentroids();
 
   // True if blobs were found.
   blobsFound = bs.getBlobsNumber() > 0;
-  println("Found " + bs.getBlobsNumber() + " blobs");
+  //println("Found " + bs.getBlobsNumber() + " blobs");
 }
 
 
@@ -156,7 +211,7 @@ void reloadBlobs(PImage frame) {
     Returns the blobNumber of heaviest (== biggest) blob on camera
 */
 int findHeaviestBlob() {
-  println("Finding heaviest blob");
+  //println("Finding heaviest blob");
   // By default the heaviest blob is the blob at index 0
   int currentHeaviestBlobNum = 0;
 
@@ -209,17 +264,17 @@ int findHeaviestBlob() {
          
  */
 void setRoiAroundBlob(int blobIndex) {
-  // get the blob properties that are used for setting the ROI
+  
   int x = (int)bs.getCentroidX(blobIndex);
   int y = (int)bs.getCentroidY(blobIndex);
   int w = bs.getBlobWidth(blobIndex);
   int h = bs.getBlobHeight(blobIndex);
 
   // Set roi dimensions to be a bit larger than the blob
-  int roiX = (int)constrain((x - w/2) - w/4, 0, width-w);
-  int roiY = (int)constrain((y - h/2) - h/4, 0, height - h);
-  int roiW = (int)constrain(w * 1.3, 0, width);
-  int roiH = (int)constrain(h * 1.3, 0, height);
+  int roiX = (int)((x - w/2) - w/8);
+  int roiY = (int)((y - h/2) - h/8);
+  int roiW = (int)(w*1.2);
+  int roiH = (int)(h * 1.2);
 
   // Set ROI according the previous properties
   bs.setRoi( roiX, 
@@ -227,7 +282,7 @@ void setRoiAroundBlob(int blobIndex) {
              roiW, 
              roiH);
 
-  println("ROI set according to the heaviest blob");
+  //println("ROI set according to blob number " + blobIndex);
 }
 
 
@@ -239,7 +294,7 @@ void setRoiAroundBlob(int blobIndex) {
 */
 void processFrameForScanning(PImage frame) {
   frame.filter(INVERT);
-  frame.filter(THRESHOLD, 0.5);
+  frame.filter(THRESHOLD, 0.7);
 }
 
 
@@ -247,9 +302,24 @@ void processFrameForScanning(PImage frame) {
     Unset ROI, recalculate it's position and reset it
 */
 void updateROI() {
-  println("Setting ROI");
+  //println("Setting ROI");
   bs.unsetRoi();
   isRoiSet = false;
   setRoiAroundBlob(findHeaviestBlob());
   isRoiSet = true;
+}
+
+void restart() {
+  score = 0;
+  interval = 60;
+  gameOver = false;
+  cam.start();
+  cam.loadPixels();
+  loop();
+}
+
+void keyPressed() {
+  if (gameOver && key == ' ') {
+    restart();
+  }
 }
