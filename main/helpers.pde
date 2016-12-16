@@ -34,6 +34,7 @@ void drawRoiRect() {
     Displays how many frames per second the program runs
 */
 void displayFps() {
+  fill(BLACK);
   textSize(36);
   text(frameRate, 10, height-50);
 }

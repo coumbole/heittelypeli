@@ -6,9 +6,10 @@ Amplitude rms;
 
 int scale=1;
 PFont font;
-String time = "60";
+String time = "0";
 int t;
-int interval = 60;
+int startTime = millis();
+int interval = 0;
 int score;
 int radius;
 
@@ -44,7 +45,7 @@ void initTarget() {
   score = 0;
   
   // Circle properties
-  radius = 150;
+  radius = 200;
   targetX = width/2;
   targetY = height/2;
 }
@@ -65,7 +66,11 @@ void updateScale() {
 // Render the music visualizer circle
 void drawVisualizer() {
   noStroke();
-  fill(LIGHTGRAY);
+  fill(WHITE);
+  if (frameCount < scoreTime + 20) {
+    //println(rms.analyze());
+    fill(color(rms.analyze()*10 * 250, 250, 250));
+  }
   stroke(200);
   ellipse(targetX, targetY, radius + scale, radius + scale);
 }
@@ -82,11 +87,11 @@ void drawTarget() {
     
     // Change the colour on every other circle
     if (i % 2 == 1){
-      fill(TEAL);
-      stroke(TEAL);
+      fill(WHITE);
+      stroke(BLACK);
     } else {
       fill(WHITE);
-      stroke(WHITE);
+      stroke(BLACK);
     }
     
     // Draw the target
@@ -99,28 +104,45 @@ void drawTarget() {
 
 
 void drawText() {
-  
   fill(BLACK);
-  t = interval - (int) millis() / 1000;
+  t = interval - (int)(millis() - startTime) / 1000;
+  //print(interval);
   if(t > -1){
     time = nf(t , 2);
   }
   if (t == 0) {
+    gameCount++;
     gameOver = true;
   }
-  /* // Loop countDown
-  if(t == 0){
-      interval += 60;
-  }
-  */
+
   textSize(36);
   text(time, width/2, 40);
   text("Score:  " + score, width - 500, 40);
 }
 
 void drawGameover() {
+  textAlign(CENTER);
+  fill(TEAL);
   background(100);
   text("Game Over! Your score was " + score, width / 2, height / 2 - 50);
   text("Press spacebar to play again", width / 2, height / 2 + 50);
+  textAlign(LEFT);
   
+}
+
+void drawNewgame() {
+  textSize(36);
+  textAlign(CENTER);
+  fill(TEAL);
+  background(100);
+  text("Press spacebar to play", width / 2, height / 2 + 50);
+  textAlign(LEFT);
+}
+
+void drawScored() {
+  textAlign(CENTER);
+  fill(color(200, 0, 0));
+  textSize(50);
+  text("Scored", width / 2, height/2 - 400); 
+  textAlign(LEFT);
 }

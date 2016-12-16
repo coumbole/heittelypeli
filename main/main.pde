@@ -26,104 +26,118 @@ boolean isRoiSet = false;
 
 boolean scored = false;
 
-boolean gameOver = false;
+boolean gameOver = true;
+
+boolean justScored = false;
+
+int scoreTime = 0;
+
+int gameCount = 0;
 
 void setup() {
-  size(1280, 720);
+  fullScreen();
   frameRate(25);
   
   // Initialize the Detector with the given treshold
   bs = new Detector(this, thres);
 
   // Set an initial ROI to make startup lighter
-  bs.setRoi(width/4, height/4, width/2, height/2);
+  bs.setRoi(width/2-100, height/2-100, 200, 200);
   isRoiSet = true;
 
-  /*
+  
   initAudio();
   initTarget();
-  */
-  
   initFonts();
-
-  // Uncomment to have the list of available cameras printed to the console
-  //findCameras();
 
   // Initialized the video instance for streaming video from camera
   cam = new Capture(this, width, height);
 
-  // Start streaming
-  cam.start();
-
-  // Makes the video object's pixels[] array available
-  cam.loadPixels();
 }
 
 
 void draw() {
   
-  if (gameOver) {
-    println("Game over");
-    cam.stop();
-    noLoop();
-    drawGameover();
-  }
+  background(200);
   
-  // Only run the following code if a new cam frame is available
-  if (cam.available()) {
+  if (!gameOver) {
     
+    // Only run the following code if a new cam frame is available
+    if (cam.available()) {
+      
+      // Reads the latest frame from camera
+      cam.read();
+    
+      // Makes the pixels[] array of cam available. Array is required by findBlobs() method
+      cam.loadPixels();
+    
+      // Invert and filter the frame. Required by blobscanner
+      processFrameForScanning(cam);
+      
+      // Recalculate all blobs inside the ROI approx. once a second
+      if (frameCount % 30 == 0) {
+        reloadBlobs(cam);
+        //updateROI();
+      }
 
-    // Reads the latest frame from camera
-    cam.read();
+      if (frameCount > scoreTime+30) {
+         justScored = false; 
+      }
+      
+      // Adjust the input volume according to cyrsor's Y-position
+      updateVolume();
+      
+      // Adjust the scale of the music visualizer according to volume amplitude
+      updateScale();
+      
+      // Render the visualizer circle around the target
+      drawVisualizer();
 
-    // Makes the pixels[] array of cam available. Array is required by findBlobs() method
-    cam.loadPixels();
-
-    // Render the frame to the screen
-    image(cam, 0, 0, width, height);
-
-    // Invert and filter the frame. Required by blobscanner
-    processFrameForScanning(cam);
-
-    // Recalculate all blobs inside the ROI approx. once a second
-    if (frameCount % 30 == 0) {
-      reloadBlobs(cam);
-      updateROI();
+      // Draws bounding boxes of blobs
+      //drawBlobs();
+      
+      // Every 3rd frame, check if there is another blob inside the target
+      if (frameCount % 3 == 0) {
+        checkCollision();
+      }
+      
+      
+    } else {
+      //println("Video was not available");
     }
     
-    // Every 3rd frame, check if there is another blob inside the target
-    if (frameCount % 5 == 0) {
-      checkCollision();
+    if (frameCount > 10) {
+      // Render the target
+      drawTarget();
     }
-    
-    // Draws bounding boxes of blobs
-    //drawBlobs();
-    
-    /*
-    // Adjust the input volume according to cyrsor's Y-position
-    updateVolume();
-    
-    // Adjust the scale of the music visualizer according to volume amplitude
-    updateScale();
-    
-    // Render the visualizer circle around the target
-    drawVisualizer();
-    
-    // Render the target
-    drawTarget();
-    */
-    
+    // Only for debugging purposes
+    //displayFps();
+    //drawRoiRect();
+      
     // Render time and score
     drawText();
     
+    if (justScored) {
+      drawScored();
+    }
   } else {
-    //println("Video was not available");
+    if (gameCount > 0) {
+      cam.stop();
+      drawGameover();
+    } else {
+      drawNewgame();
+      
+    }
   }
 
-  // Only for debugging purposes
-  //displayFps();
-  //drawRoiRect();
 }
+
+void keyPressed() {
+  if (key == ' ') {
+    restart();
+  }
+}
+
 
 /*
     Checks if there is a blob inside ROI (which is set to be pretty much the target)
@@ -132,18 +146,20 @@ void draw() {
 */
 void checkCollision() {
 
-  int[] roiParams = bs.getRoiParameters();
+  //int[] roiParams = bs.getRoiParameters();
   PImage copy = cam;
   copy.filter(INVERT);
   
   // For debugging, uncomment following to visualize when collision check takes place
   //image(copy, 0, 0);
-
+  
+  /*
   // To find blobs inside the target, set the ROI smaller
   bs.setRoi(roiParams[0]+50,   // target's X coordinate
             roiParams[1]+50,   // target's Y coordinate
             roiParams[2]-100,   // target's width
             roiParams[3]-100);  // target's height
+            */
   
   // Draw the ROI rectangle to help visualize where it is
   //drawRoiRect();
@@ -156,7 +172,11 @@ void checkCollision() {
   // There's a white thing inside the target => SCORE!!
   if (bs.getBlobsNumber() > 0) {
     if (bs.getBlobWeight(findHeaviestBlob()) > 9000) {
-      scored = true;
+      if (!justScored) {
+        scored = true;
+        justScored = true;
+        scoreTime = frameCount;
+      }
     }
   }
   
@@ -164,11 +184,13 @@ void checkCollision() {
   if (scored) score++;
   scored = false;
   
+  /*
   // Set the original ROI back
   bs.setRoi(roiParams[0],
             roiParams[1],
             roiParams[2],
             roiParams[3]);
+  */
 }
 
 
@@ -281,8 +303,6 @@ void setRoiAroundBlob(int blobIndex) {
              roiY, 
              roiW, 
              roiH);
-
-  //println("ROI set according to blob number " + blobIndex);
 }
 
 
@@ -310,16 +330,13 @@ void updateROI() {
 }
 
 void restart() {
+  print(interval);
+  print(time);
+  key = 'a';
   score = 0;
-  interval = 60;
-  gameOver = false;
+  interval = 40;
+  startTime = millis();
   cam.start();
   cam.loadPixels();
-  loop();
-}
-
-void keyPressed() {
-  if (gameOver && key == ' ') {
-    restart();
-  }
+  gameOver = false;
 }
